@@ -61,6 +61,7 @@ ceph_number_Secret=$ceph_number
 ceph_number_hosts=$ceph_number
 ceph_number_mon=$ceph_number
 ceph_number_info=$ceph_number
+ceph_add_node=$ceph_number
 echo "内网IP地址 内网网卡 主机ROOT密码" > /etc/ansible/info_tmp
 echo -e "\n\n"
 echo "**********************"
@@ -328,11 +329,18 @@ if [ $(( $ceph_number_mon % 2 )) = 0 ]; then #mon的数量保证奇数
         let "ceph_number_mon--"
 fi
 ansible ceph_master -m shell -a "cat /etc/hosts" > /tmp/ceph_host_info
+# 组装初始换节点node名称
+let ceph_add_node--
+for i in `seq 0 $ceph_add_node`;do echo -e "$i, \c"; done > /tmp/1
+ceph_add_node_1=`cat /tmp/1`
+ceph_add_node_ok=`echo ${ceph_add_node_1%??}`
+# 组装完成
 cat > /root/ceph_ansible/ceph_initenv.yml <<EOF
 ---
 - hosts: ceph_master
   vars:
     max_clients: 200
+    node: [ $ceph_add_node_ok ]
   user: root
   tasks:
   - name: 创建ceph配置目录
@@ -340,13 +348,16 @@ cat > /root/ceph_ansible/ceph_initenv.yml <<EOF
   - name: 创建ceph主节点
     shell: cephadm bootstrap --mon-ip $ceph_master_ip > /root/ceph_dashboard.log 2>&1
   - name: 添加主节点
-    shell: ssh-copy-id -f -i /etc/ceph/ceph.pub root@node0 && cephadm shell -- ceph orch host add node0
-  - name: 添加其余各节点
-    shell: ssh-copy-id -f -i /etc/ceph/ceph.pub root@{{hostname|quote}} && cephadm shell -- ceph orch host add {{hostname|quote}}
+    raw: "ssh-copy-id -f -i /etc/ceph/ceph.pub root@node{{item}} && cephadm shell -- ceph orch host add node{{item}}"
+    with_items:
+      - "{{node}}"
+    register: num
   - name: 配置公共网络
     shell: cephadm shell -- ceph config set mon public_network $ceph_segment
   - name: 指定mon数量
     shell: cephadm shell -- ceph orch apply mon $ceph_number_mon
+  - name: 指定mon
+    shell:  cephadm shell -- ceph orch apply mon node0,node1,node2
 EOF
 ansible-playbook -i /etc/ansible/hosts /root/ceph_ansible/ceph_initenv.yml
 echo "恭喜部署完成"
