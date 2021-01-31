@@ -1,7 +1,7 @@
 #!/bin/bash
 function ceph_destory(){
    ceph_destory_tag_more=`ls /var/lib/ceph|wc -w`
-   if [ $ceph_destory_tag_more > "2" ]; then
+   if [ $ceph_destory_tag_more -ge "2" ]; then
        echo "该主机中存在多个集群，请手动清除，本脚本无能为力"
        exit 0
    fi
@@ -13,7 +13,7 @@ if [ ! -d "/var/lib/ceph" ];then
 mkdir /var/lib/ceph
 fi
 ceph_folder=`ls /var/lib/ceph|wc -w`
-if [ $ceph_folder > "1" ]; then
+if [ $ceph_folder -ge "1" ]; then
     echo "ceph集群已存在,是否清除原集群输入yes/no(确认清除将使原集群发生不可逆损毁，请谨慎选择)"
     read destory
     while [ "$destory" != "yes" ]; do
@@ -232,7 +232,7 @@ cat > /root/ceph_ansible/ceph_initenv_master.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 传送cephadm安装脚本
-    template: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
+    copy: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
   - name: 安装ceph源
     file: dest=/tmp/cephadm_15.2.8 mode=777
   - name: 添加15.2.8的yum源
@@ -283,7 +283,7 @@ cat > /root/ceph_ansible/ceph_initenv_slave.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 传送cephadm安装脚本
-    template: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
+    copy: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
   - name: 安装ceph源
     file: dest=/tmp/cephadm_15.2.8 mode=777
   - name: 添加15.2.8的yum源
