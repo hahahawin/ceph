@@ -327,6 +327,7 @@ echo "开始初始化集群环境"
 if [ $(( $ceph_number_mon % 2 )) = 0 ]; then #mon的数量保证奇数
         let "ceph_number_mon--"
 fi
+ansible ceph_master -m shell -a "cat /etc/hosts" > /tmp/ceph_host_info
 cat > /root/ceph_ansible/ceph_initenv.yml <<EOF
 ---
 - hosts: ceph_master
@@ -341,14 +342,21 @@ cat > /root/ceph_ansible/ceph_initenv.yml <<EOF
   - name: 添加主节点
     shell: ssh-copy-id -f -i /etc/ceph/ceph.pub root@node0 && cephadm shell -- ceph orch host add node0
   - name: 添加其余各节点
-    shell: ssh-copy-id -f -i /etc/ceph/ceph.pub root@{{hostname}} && cephadm shell -- ceph orch host add {{hostname}}
+    shell: ssh-copy-id -f -i /etc/ceph/ceph.pub root@{{hostname|quote}} && cephadm shell -- ceph orch host add {{hostname|quote}}
   - name: 配置公共网络
     shell: cephadm shell -- ceph config set mon public_network $ceph_segment
   - name: 指定mon数量
     shell: cephadm shell -- ceph orch apply mon $ceph_number_mon
 EOF
 ansible-playbook -i /etc/ansible/hosts /root/ceph_ansible/ceph_initenv.yml
-echo "请访问dashbrod初始化ceph pool，前端配置如下"
-ansible ceph_master -m shell "cat /root/ceph_dashboard.log"
+echo "恭喜部署完成"
+echo "请访问dashbrod初始化ceph pool，前端配置如下（如果信息为空，证明节点部署失败，请重跑脚本）"
+ansible ceph_master -m shell -a "cat /root/ceph_dashboard.log|sed -n "/Dashboard/,/Password/p""
+echo "请将如下内容加入访问dashbrod——web的host文件，否则可能无法正常访问服务"
+echo -e "\n"
+cat /tmp/ceph_host_info |sed '1,2d'
+echo -e "\n"
+
+
 
 
