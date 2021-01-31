@@ -5,7 +5,8 @@ function ceph_destory(){
        echo "该主机中存在多个集群，请手动清除，本脚本无能为力"
        exit 0
    fi
-   ceph_destory_tag=`ls /var/lib/ceph`   ansible ceph_master,ceph_slave -m shell -a  "cephadm rm-cluster --fsid $ceph_destory_tag --force"
+   ceph_destory_tag=`ls /var/lib/ceph`
+   ansible ceph_master,ceph_slave -m shell -a  "cephadm rm-cluster --fsid $ceph_destory_tag --force"
 }
 function ceph_check_old(){
 if [ ! -d "/var/lib/ceph" ];then
@@ -42,6 +43,8 @@ else
    exit 0
 fi
 rpm -q epel-release &> /dev/null || yum install epel-release -y &> /dev/null
+rpm -q wget &> /dev/null || yum install wget -y &> /dev/null
+rpm -q python3 &> /dev/null || yum install python3 -y &> /dev/null
 #判断ansible是否存在，不存在就安装
 ansible_status=`rpm -qa|grep ansible|wc -l`
 if [ $ansible_status -eq 0 ]; then
@@ -183,61 +186,8 @@ while [[ $ceph_number_hosts > "1" ]]; do
   ceph_slave_ip_hosts=`eval echo "$"ceph_slave_ip$c""`
   echo "$ceph_slave_ip_hosts node$c" >> /root/ceph_ansible/hosts.j2
 done
-##生成ceph源文件
-if [[ $sysvertion = "7" ]]; then
-cat > /root/ceph_ansible/ceph.j2 <<'EOF'
-[Ceph]
-name=Ceph packages for
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el7/$basearch
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-
-[Ceph-noarch]
-name=Ceph noarch packages
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el7/noarch
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-
-[ceph-source]
-name=Ceph source packages
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el7/SRPMS
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-EOF
-fi
-if [[ $sysvertion = "8" ]]; then
-cat > /root/ceph_ansible/ceph.j2 <<'EOF'
-[Ceph]
-name=Ceph packages for 
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el8/$basearch
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-
-[Ceph-noarch]
-name=Ceph noarch packages
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el8/noarch
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-
-[ceph-source]
-name=Ceph source packages
-baseurl=http://mirrors.aliyun.com/ceph/rpm-15.2.6/el8/SRPMS
-enabled=1
-gpgcheck=1
-type=rpm-md
-gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
-EOF
-fi
+## 获取cephadm安装脚本
+wget -O /root/ceph_ansible/cephadm_15.2.8 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
 ##生成podman国内加速文件
 cat > /root/ceph_ansible/registries.j2 <<EOF
 unqualified-search-registries = ["docker.io"]
@@ -282,11 +232,13 @@ cat > /root/ceph_ansible/ceph_initenv_master.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 安装ceph源
-    template: src=/root/ceph_ansible/ceph.j2 dest=/etc/yum.repos.d/ceph.repo
-  - name: 安装cephadm
-    yum: pkg=cephadm state=latest
+    file: dest=/root/ceph_ansible/cephadm_15.2.8 mode=775
+  - name: 添加15.2.8的yum源
+    shell: ./root/ceph_ansible/cephadm_15.2.8 add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
+  - name: 初始化cephadm
+    shell: ./root/ceph_ansible/cephadm_15.2.8 install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
@@ -329,11 +281,13 @@ cat > /root/ceph_ansible/ceph_initenv_slave.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 安装ceph源
-    template: src=/root/ceph_ansible/ceph.j2 dest=/etc/yum.repos.d/ceph.repo
-  - name: 安装cephadm
-    yum: pkg=cephadm state=latest
+    file: dest=/root/ceph_ansible/cephadm_15.2.8 mode=775
+  - name: 添加15.2.8的yum源
+    shell: ./root/ceph_ansible/cephadm_15.2.8 add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
+  - name: 初始化cephadm
+    shell: ./root/ceph_ansible/cephadm_15.2.8 install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
