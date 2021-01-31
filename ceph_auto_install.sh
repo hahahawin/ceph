@@ -187,7 +187,7 @@ while [[ $ceph_number_hosts > "1" ]]; do
   echo "$ceph_slave_ip_hosts node$c" >> /root/ceph_ansible/hosts.j2
 done
 ## 获取cephadm安装脚本
-wget -O /root/ceph_ansible/cephadm_15.2.8 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
+wget -O /root/ceph_ansible/cephadm_15.2.8.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
 ##生成podman国内加速文件
 cat > /root/ceph_ansible/registries.j2 <<EOF
 unqualified-search-registries = ["docker.io"]
@@ -231,14 +231,16 @@ cat > /root/ceph_ansible/ceph_initenv_master.yml <<EOF
   tasks:
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
+  - name: 传送cephadm安装脚本
+    template: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
   - name: 安装ceph源
-    file: dest=/root/ceph_ansible/cephadm_15.2.8 mode=775
+    file: dest=/tmp/cephadm_15.2.8 mode=777
   - name: 添加15.2.8的yum源
-    shell: ./root/ceph_ansible/cephadm_15.2.8 add-repo --release octopus
+    shell: /tmp/cephadm_15.2.8 add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
   - name: 初始化cephadm
-    shell: ./root/ceph_ansible/cephadm_15.2.8 install
+    shell: /tmp/cephadm_15.2.8 install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
@@ -280,14 +282,16 @@ cat > /root/ceph_ansible/ceph_initenv_slave.yml <<EOF
   tasks:
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
+  - name: 传送cephadm安装脚本
+    template: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
   - name: 安装ceph源
-    file: dest=/root/ceph_ansible/cephadm_15.2.8 mode=775
+    file: dest=/tmp/cephadm_15.2.8 mode=777
   - name: 添加15.2.8的yum源
-    shell: ./root/ceph_ansible/cephadm_15.2.8 add-repo --release octopus
+    shell: /tmp/cephadm_15.2.8 add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
   - name: 初始化cephadm
-    shell: ./root/ceph_ansible/cephadm_15.2.8 install
+    shell: /tmp/cephadm_15.2.8 install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
