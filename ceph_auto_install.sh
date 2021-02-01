@@ -27,14 +27,9 @@ if [ $ceph_folder -ge "1" ]; then
     ceph_destory 
 fi    
 }
-echo -e "\n"
-echo -e "\033[31m ***********************************************************************************************************\033[0m"
-echo -e "\033[31m *     本脚本只能在centos7或者centos8下运行，如在其他系统运行会发生致命错误,安装前请确保全集群网络正常     *\033[0m"
-echo -e "\033[31m ***********************************************************************************************************\033[0m"
-echo -e "\n"
-#如果全集群没有网 先搭建网桥
+function cephadm_check_os_info() {
 #判断是否是centos7或者8系统
-sysvertion=`cat /etc/redhat-release|sed -r 's/.* ([0-9]+)\..*/\1/'`
+sysvertion=`ansible ceph_master -m shell -a "cat /etc/redhat-release|sed -r 's/.* ([0-9]+)\..*/\1/'"|sed 1d`
 if [[ $sysvertion = "7" ]] || [[ $sysvertion = "8" ]]; then
    echo -e "\033[32m 系统符合要求，开始部署。。。\033[0m"
    echo -e "\n"
@@ -42,6 +37,36 @@ else
    echo -e "\033[31m 系统不符合要求，退出中。。。\033[0m"
    exit 0
 fi
+}
+function cephadm_python3() {
+## 获取cephadm安装脚本
+if [[ $sysvertion = "7" ]]; then
+    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.6
+fi
+
+if [[ $sysvertion = "8" ]]; then
+    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
+fi
+}
+function ceph_check_network(){
+#ceph_network_status=`ansible ceph_master,ceph_slave -m shell -a "curl -I -m 60 -o /dev/null -s -w %{http_code} https://mirrors.aliyun.com/ceph/rpm-15.2.6/el7/noarch/ceph-release-1-1.el7.noarch.rpm"`
+ceph_network_status=`ansible ceph_master,ceph_slave -m shell -a "ping -W 2 -c 2 mirrors.aliyun.com"`
+echo "检查ceph各节点网络状态"
+echo "$ceph_network_status"
+ceph_network_status_check=`echo "$ceph_network_status"|grep -E "100% packet loss"|"service not knownnon"`
+if [ -n "$ceph_network_status_check" ];then
+    echo -e "\033[31m ceph节点无法访问外网或ceph镜像库，请检查网络！\033[0m"
+    echo -e "\n"
+    echo -e "\033[31m 安装退出中。。。\033[0m"
+    exit 0
+fi
+}
+echo -e "\n"
+echo -e "\033[31m ***********************************************************************************************************\033[0m"
+echo -e "\033[31m *     本脚本只能在centos7或者centos8下运行，如在其他系统运行会发生致命错误,安装前请确保全集群网络正常     *\033[0m"
+echo -e "\033[31m ***********************************************************************************************************\033[0m"
+echo -e "\n"
+#安装相应环境包
 rpm -q epel-release &> /dev/null || yum install epel-release -y &> /dev/null
 rpm -q wget &> /dev/null || yum install wget -y &> /dev/null
 rpm -q python3 &> /dev/null || yum install python3 -y &> /dev/null
@@ -148,20 +173,6 @@ while [[ $ceph_number_Secret > "1" ]]; do
   ceph_slave_password_Secret=`eval echo "$"ceph_slave_password$b""`
   sshpass -p $ceph_slave_password_Secret ssh-copy-id -i  /root/.ssh/id_rsa.pub $ceph_slave_ip_Secret &> /dev/null
 done
-#定义ansible检测各节点主机外网联通性
-function ceph_check_network(){
-#ceph_network_status=`ansible ceph_master,ceph_slave -m shell -a "curl -I -m 60 -o /dev/null -s -w %{http_code} https://mirrors.aliyun.com/ceph/rpm-15.2.6/el7/noarch/ceph-release-1-1.el7.noarch.rpm"`
-ceph_network_status=`ansible ceph_master,ceph_slave -m shell -a "ping -W 2 -c 2 mirrors.aliyun.com"`
-echo "检查ceph各节点网络状态"
-echo "$ceph_network_status"
-ceph_network_status_check=`echo "$ceph_network_status"|grep -E "100% packet loss"|"service not knownnon"`
-if [ -n "$ceph_network_status_check" ];then
-    echo -e "\033[31m ceph节点无法访问外网或ceph镜像库，请检查网络！\033[0m"
-    echo -e "\n"
-    echo -e "\033[31m 安装退出中。。。\033[0m"
-    exit 0
-fi
-}
 #初始化master主机环境
 ##生成ansible hosts文件
 
@@ -174,7 +185,6 @@ $ceph_master_ip hostname=node0
 [ceph_slave]
 EOF
 cat /etc/ansible/hosts_tmp >>/etc/ansible/hosts #3 #1234部分生成了hosts_tmp eval可以应对变量嵌套 例如eval echo "$"ymd$i""
-ceph_check_network #检查集群网络
 ##生成集群hosts文件
 cat > /root/ceph_ansible/hosts.j2 <<EOF
 127.0.0.1   localhost localhost.localdomain
@@ -187,15 +197,6 @@ while [[ $ceph_number_hosts > "1" ]]; do
   ceph_slave_ip_hosts=`eval echo "$"ceph_slave_ip$c""`
   echo "$ceph_slave_ip_hosts node$c" >> /root/ceph_ansible/hosts.j2
 done
-## 获取cephadm安装脚本
-if [[ $sysvertion = "7" ]]; then
-    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.6
-fi
-
-if [[ $sysvertion = "8" ]]; then
-    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
-fi
-
 ##生成podman国内加速文件
 cat > /root/ceph_ansible/registries.j2 <<EOF
 unqualified-search-registries = ["docker.io"]
@@ -229,6 +230,9 @@ cat > /root/ceph_ansible/chrony_slave.j2 << EOF
 server $ceph_master_ip iburst
 EOF
 ##生成执行ansible主节点初始化yml
+ceph_check_network #检查集群网络
+cephadm_check_os_info #检查集群系统版本
+cephadm_python3 #根据系统选择cephadm版本
 echo "开始初始化主节点环境"
 cat > /root/ceph_ansible/ceph_initenv_master.yml <<EOF
 ---
@@ -374,7 +378,3 @@ echo "请将如下内容加入访问dashbrod——web的host文件，否则可�
 echo -e "\n"
 cat /tmp/ceph_host_info |sed '1,2d'
 echo -e "\n"
-
-
-
-
