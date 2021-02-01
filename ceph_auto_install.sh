@@ -378,3 +378,6 @@ echo "请将如下内容加入访问dashbrod——web的host文件，否则可�
 echo -e "\n"
 cat /tmp/ceph_host_info |sed '1,2d'
 echo -e "\n"
+echo -e "$ceph_segment \c" > /tmp/2 #将网段信息临时存储，方便其他脚本调用
+echo ”如果你已确定ceph部署成功，同时魔方云也已经部署成功，魔方云节点内核已升级到5以上可以用以下脚本自动初始化魔方云ceph环境“
+echo ”请在本机执行  ”wget -O mofang_ceph_env “ “
