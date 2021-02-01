@@ -188,7 +188,14 @@ while [[ $ceph_number_hosts > "1" ]]; do
   echo "$ceph_slave_ip_hosts node$c" >> /root/ceph_ansible/hosts.j2
 done
 ## 获取cephadm安装脚本
-wget -O /root/ceph_ansible/cephadm_15.2.8.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
+if [[ $sysvertion = "7" ]]; then
+    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.6
+fi
+
+if [[ $sysvertion = "8" ]]; then
+    wget -O /root/ceph_ansible/cephadm.j2 https://liquanbing.oss-cn-chengdu.aliyuncs.com/ceph/cephadm_15.2.8
+fi
+
 ##生成podman国内加速文件
 cat > /root/ceph_ansible/registries.j2 <<EOF
 unqualified-search-registries = ["docker.io"]
@@ -233,15 +240,15 @@ cat > /root/ceph_ansible/ceph_initenv_master.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 传送cephadm安装脚本
-    copy: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
+    copy: src=/root/ceph_ansible/cephadm.j2 dest=/tmp/cephadm
   - name: 安装ceph源
-    file: dest=/tmp/cephadm_15.2.8 mode=777
-  - name: 添加15.2.8的yum源
-    shell: /tmp/cephadm_15.2.8 add-repo --release octopus
+    file: dest=/tmp/cephadm mode=777
+  - name: 添加cephadm的yum源
+    shell: /tmp/cephadm add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
   - name: 初始化cephadm
-    shell: /tmp/cephadm_15.2.8 install
+    shell: /tmp/cephadm install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
@@ -284,15 +291,15 @@ cat > /root/ceph_ansible/ceph_initenv_slave.yml <<EOF
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
   - name: 传送cephadm安装脚本
-    copy: src=/root/ceph_ansible/cephadm_15.2.8.j2 dest=/tmp/cephadm_15.2.8
+    copy: src=/root/ceph_ansible/cephadm.j2 dest=/tmp/cephadm
   - name: 安装ceph源
-    file: dest=/tmp/cephadm_15.2.8 mode=777
-  - name: 添加15.2.8的yum源
-    shell: /tmp/cephadm_15.2.8 add-repo --release octopus
+    file: dest=/tmp/cephadm mode=777
+  - name: 添加cephadm的yum源
+    shell: /tmp/cephadm add-repo --release octopus
   - name: 安装podman
     yum: pkg=podman state=latest
   - name: 初始化cephadm
-    shell: /tmp/cephadm_15.2.8 install
+    shell: /tmp/cephadm install
   - name: 安装gdisk
     yum: pkg=gdisk state=latest
   - name: 打开firewalld
