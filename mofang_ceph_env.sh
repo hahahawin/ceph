@@ -60,6 +60,17 @@ listen_tcp = 1
 listen_addr = "0.0.0.0"
 auth_tcp = "none"
 EOF
+#生效配置前判断内核是否更换为4.4以上和是否安装魔方云计算节点
+ansible mofang -m shell -a "uname -a" > /tmp/5
+ansible mofang -m shell -a "ls /home/zjmf|wc -l" > /tmp/6
+if [[ -z `cat /tmp/5|grep 3.10` ]]; then
+    echo "请升级魔方云计算内核到4.4以上再运行本脚本"
+    exit 0
+fi
+if [[ `cat /tmp/6` -eq 0 ]]; then
+    echo "请安装魔方云后再运行该脚本"
+
+fi
 #生效配置到各mofang节点
 cat > /root/ceph_ansible/ceph_initenv_mofang.yml <<EOF
 ---
