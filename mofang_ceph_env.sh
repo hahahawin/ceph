@@ -12,7 +12,7 @@ while [[ $mofang_num > "0" ]]; do
     read mofang$a
     echo "请输入第$a 个魔方云计算节点密码"
     read mofang_passwd$a
-    echo "mofang$a" >> /root/ceph_ansible/mofang_hosts
+    eval echo "$"mofang$a"" >> /root/ceph_ansible/mofang_hosts
 done
 #实现到计算节点免密
 rpm -q sshpass &> /dev/null || yum install sshpass -y &> /dev/null
@@ -24,7 +24,7 @@ while [[ $mofang_num_1 > "0" ]]; do
   let "mofang_num_1--"
   mofang_ip=`eval echo "$"mofang$b""`
   mofang_passwd=`eval echo "$"mofang_passwd$b""`
-  sshpass -p $mofang_ip ssh-copy-id -i  /root/.ssh/id_rsa.pub $mofang_passwd &> /dev/null
+  sshpass -p $mofang_passwd ssh-copy-id -i  /root/.ssh/id_rsa.pub $mofang_ip &> /dev/null
 done
 #在ceph主节点获取 ceph.client.admin.keyring  ceph.conf  ceph.pub 三位大哥
 ansible ceph_master -m copy -a "src=/etc/ceph/ dest=/root/ceph_ansible/ceph_config/ force=yes backup=yes"
@@ -74,7 +74,7 @@ cat > /root/ceph_ansible/ceph_initenv_mofang.yml <<EOF
       - epel-release
       - ceph-common
   - name: 传送对应配置文件到计算节点
-    copy: src=/root/ceph_ansible/ceph_config/ dest=/etc/ceph/   backup=yes
+    copy: src=/root/ceph_ansible/ceph_config/ dest=/etc/ceph/  force=yes
   - name: 传送xml文件到计算节点
     template: src=/root/ceph_ansible/secret.xml.j2 dest=/etc/ceph/secret.xml
   - name: 绑定安全设置
@@ -82,7 +82,7 @@ cat > /root/ceph_ansible/ceph_initenv_mofang.yml <<EOF
   - name: 设置安全值
     shell: virsh secret-set-value --secret $ceph_fsid --base64 $ceph_key
   - name: 开启热迁移功能
-    copy: src=/root/ceph_ansible/libvirtd.conf dest=/etc/libvirt/libvirtd.conf backup=yes
+    copy: src=/root/ceph_ansible/libvirtd.conf dest=/etc/libvirt/libvirtd.conf force=yes
   - name: 重启libvirtd
     shell: systemctl restart libvirtd
 

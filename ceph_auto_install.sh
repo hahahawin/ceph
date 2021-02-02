@@ -294,6 +294,8 @@ cat > /root/ceph_ansible/ceph_initenv_slave.yml <<EOF
   tasks:
   - name: 安装epel源
     yum: pkg=epel-release  state=latest
+  - name: 安装python3
+    yum: pkg=python3 state=latest
   - name: 传送cephadm安装脚本
     copy: src=/root/ceph_ansible/cephadm.j2 dest=/tmp/cephadm
   - name: 安装ceph源
